@@ -29,7 +29,6 @@
 #include <set>
 #include <utility>  // for std::pair
 #include <vector>
-
 #include "base/logging.h"
 #include "net/instaweb/http/public/async_fetch.h"
 #include "net/instaweb/http/public/cache_url_async_fetcher.h"
@@ -253,6 +252,7 @@ RewriteDriver::RewriteDriver(MessageHandler* message_handler,
       write_property_cache_dom_cohort_(false),
       should_skip_parsing_(kNotSet),
       response_headers_(NULL),
+      err_response_headers_(NULL),
       status_code_(HttpStatus::kUnknownStatusCode),
       max_page_processing_delay_ms_(-1),
       num_initiated_rewrites_(0),
@@ -1834,7 +1834,8 @@ bool RewriteDriver::FetchResource(const StringPiece& url,
   bool handled = false;
 
   fetch_url_ = url.as_string();
-
+  OutputSanitizingAsyncFetch* sanitizer = new OutputSanitizingAsyncFetch(async_fetch);
+  async_fetch = sanitizer;
   // Set the request headers if they haven't been yet.
   if (request_headers_ == NULL && async_fetch->request_headers() != NULL) {
     SetRequestHeaders(*async_fetch->request_headers());
@@ -1875,6 +1876,10 @@ void RewriteDriver::FetchInPlaceResource(const GoogleUrl& gurl,
                                          AsyncFetch* async_fetch) {
   CHECK(gurl.IsWebValid()) << "Invalid URL " << gurl.spec_c_str();
   CHECK(request_headers_.get() != NULL);
+
+  OutputSanitizingAsyncFetch* sanitizer = new OutputSanitizingAsyncFetch(async_fetch);
+  async_fetch = sanitizer;
+
   gurl.Spec().CopyToString(&fetch_url_);
   StringPiece base = gurl.AllExceptLeaf();
   ResourceNamer namer;
@@ -2274,7 +2279,7 @@ void RewriteDriver::RewriteComplete(RewriteContext* rewrite_context,
             log_record()->logging_info()->mutable_metadata_cache_info();
         metadata_log_info->set_num_successful_rewrites_on_miss(
             metadata_log_info->num_successful_rewrites_on_miss() + 1);
-      }
+      } 
       initiated_rewrites_.erase(p);
       attached = true;
 
@@ -3338,6 +3343,7 @@ bool RewriteDriver::Write(const ResourceVector& inputs,
     meta_data->RemoveAll(HttpAttributes::kLastModified);
   }
   meta_data->SetStatusAndReason(HttpStatus::kOK);
+
   server_context_->ApplyInputCacheControl(inputs, meta_data);
   server_context_->AddOriginalContentLengthHeader(inputs, meta_data);
 
@@ -3348,6 +3354,7 @@ bool RewriteDriver::Write(const ResourceVector& inputs,
   MessageHandler* handler = message_handler();
   Writer* writer = output->BeginWrite(handler);
   bool ret = (writer != NULL);
+  
   if (ret) {
     ret = writer->Write(contents, handler);
     output->EndWrite(handler);
@@ -3377,6 +3384,16 @@ bool RewriteDriver::Write(const ResourceVector& inputs,
       CachedResult* cached = output->EnsureCachedResultCreated();
       cached->set_optimizable(true);
       cached->set_url(output->url());  // Note: output->url() will be sharded.
+      cached->clear_followed_redirects();
+      for (size_t i = 0; i < inputs.size(); i++)
+      {
+        ConstStringStarVector followed;
+        if (inputs[i]->response_headers()->Lookup("@Redirects-Followed", &followed)) {
+          for (size_t j = 0; j < followed.size(); j++) {
+            cached->add_followed_redirects(followed[j]->c_str());
+          }
+        }
+      }
     }
   } else {
     // Note that we've already gotten a "could not open file" message;

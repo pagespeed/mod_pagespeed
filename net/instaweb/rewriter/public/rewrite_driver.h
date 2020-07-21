@@ -269,11 +269,24 @@ class RewriteDriver : public HtmlParse {
     return response_headers_;
   }
 
+  // Apache has a separate response header structure that will contain headers
+  // that always need to be send, even on error.
+  // A copy of these headers will be stored here for reference.
+  // Any headers set by PHP may end up here.
+  const ResponseHeaders* err_response_headers() {
+    return err_response_headers_;
+  }
+
   // Set the pointer to the response headers that filters can update
   // before the first flush.  RewriteDriver does NOT take ownership
   // of this memory.
   void set_response_headers_ptr(ResponseHeaders* headers) {
     response_headers_ = headers;
+  }
+
+  // Like set_response_headers_ptr above, but instead sets err_response_headers
+  void set_err_response_headers_ptr(ResponseHeaders* headers) {
+    err_response_headers_ = headers;
   }
 
   // Reinitializes request_headers_ (a scoped ptr) with a copy of the original
@@ -1577,6 +1590,8 @@ class RewriteDriver : public HtmlParse {
   StringFilterMap resource_filter_map_;
 
   ResponseHeaders* response_headers_;
+
+  ResponseHeaders* err_response_headers_;
 
   // request_headers_ is a copy of the Fetch's request headers, and it
   // stays alive until the rewrite driver is recycled or deleted.

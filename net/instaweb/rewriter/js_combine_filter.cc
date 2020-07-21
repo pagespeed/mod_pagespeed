@@ -93,6 +93,22 @@ class JsCombineFilter::JsCombiner : public ResourceCombiner {
     StringPiece this_charset = RewriteFilter::GetCharsetForScript(
         resource, attribute_charset_, rewrite_driver_->containing_charset());
 
+
+    // TODO(oschaaf): de-duplicate this code with the css combiner code
+    // If any of the inputs was loaded via a redirect location that violatse
+    // Content-Security-Policy, it's not combinable.
+    ConstStringStarVector v;
+    if (!rewrite_driver_->content_security_policy().empty()) {
+      if (resource->response_headers()->Lookup("@Redirects-Followed", &v)) {
+        for (int i = 0, n = v.size(); i < n; ++i) {
+          if (!rewrite_driver_->IsLoadPermittedByCsp(GoogleUrl(*(v[i])), CspDirective::kScriptSrc)) {
+            *failure_reason = "Redirect location not allowed by Content-Security-Policy";
+            return false;
+          }
+        }
+      }
+    }
+
     // This resource's charset must match that of the combination so far.
     // TODO(matterbury): Correctly handle UTF-16 and UTF-32 without the BE/LE
     // suffixes, which are legal if we can determine endianness some other way.
@@ -386,9 +402,15 @@ class JsCombineFilter::Context : public RewriteContext {
   virtual OutputResourceKind kind() const { return kRewrittenResource; }
 
   virtual GoogleString CacheKeySuffix() const {
-    // Updated to make sure certain bugfixes actually deploy, and we don't
-    // end up using old broken cached version.
-    return "v4";
+    // TODO(oschaaf): check if we don't exceed any size thresholds of cache backed
+    // when appending this longer prefix.
+    // TODO(oschaaf): check that the has will not contain any invalid characters
+    // for certain cache backends
+    // TODO(oschaaf): verify collision chance looks like something we can live with
+    // considering the use case
+    auto hash = Driver()->server_context()->hasher()->Hash(
+        Driver()->content_security_policy().ToString());
+    return hash;
   }
 
  private:

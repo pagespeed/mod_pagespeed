@@ -98,7 +98,8 @@ ProxyFetch* ProxyFetchFactory::CreateNewProxyFetch(
     ProxyFetchPropertyCallbackCollector* property_callback,
     AsyncFetch* original_content_fetch) {
   const GoogleString* url_to_fetch = &url_in;
-
+  OutputSanitizingAsyncFetch* sanitizer = new OutputSanitizingAsyncFetch(async_fetch);
+  async_fetch = sanitizer;
   // Check whether this an encoding of a non-rewritten resource served
   // from a non-transparently proxied domain.
   UrlNamer* namer = server_context_->url_namer();
@@ -654,6 +655,7 @@ void ProxyFetch::HandleHeadersComplete() {
     sanitize = true;
   }
 
+  response_headers()->ComputeCaching();
   // Make sure we never serve cookies if the domain we are serving
   // under isn't the domain of the origin.
   if (sanitize) {
@@ -883,7 +885,6 @@ bool ProxyFetch::HandleWrite(const StringPiece& str,
           SetupForHtml();
         }
       }
-
       // Now we're done mucking about with headers, add one noting our
       // involvement.
       AddPagespeedHeader();

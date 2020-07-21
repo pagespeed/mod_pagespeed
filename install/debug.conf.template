@@ -1610,6 +1610,86 @@ ModPagespeedMessagesDomains Allow localhost
 </VirtualHost>
 
 <VirtualHost localhost:@@APACHE_SECONDARY_PORT@@>
+  ServerName redirecting-fetch.example.com
+  DocumentRoot "@@APACHE_DOC_ROOT@@"
+  ModPagespeedFileCachePath "@@MOD_PAGESPEED_CACHE@@"
+  ModPagespeedDomain redirecting-fetch.example.com:@@APACHE_SECONDARY_PORT@@
+
+  # This needs MapOriginDomain because the redirect to redirecting-fetch.example.com will
+  # not resolve.
+  ModPagespeedMapOriginDomain 127.0.0.1:@@APACHE_SECONDARY_PORT@@ \
+    redirecting-fetch.example.com:@@APACHE_SECONDARY_PORT@@
+  ModPagespeedDisallow *styles/disallowed.css
+
+
+  Alias "/redir_to_test/inline_css.html" "@@APACHE_DOC_ROOT@@/mod_pagespeed_example/inline_css.html" 
+  Alias "/redir_to_test" "@@APACHE_DOC_ROOT@@/mod_pagespeed_test"
+  Redirect permanent /redir_to_test/styles/blue.css /mod_pagespeed_example/styles/yellow.css
+  Redirect permanent /redir_to_test/styles/1.css /redir_to_test/styles/2.css
+  Redirect permanent /redir_to_test/styles/2.css /mod_pagespeed_example/styles/yellow.css
+
+  RewriteRule ^/redir_to_test/styles/redirtodisallowed.css$ \
+     /mod_pagespeed_example/styles/disallowed.css [L,R=301]
+</VirtualHost>
+
+<VirtualHost localhost:@@APACHE_SECONDARY_PORT@@>
+  ServerName redirecting-fetch-csp.example.com:@@APACHE_SECONDARY_PORT@@
+  DocumentRoot "@@APACHE_DOC_ROOT@@"
+  ModPagespeedFileCachePath "@@MOD_PAGESPEED_CACHE@@"
+  ModPagespeedDomain redirecting-fetch-csp.example.com:@@APACHE_SECONDARY_PORT@@
+  ModPagespeedDomain redirecting-fetch.example.com:@@APACHE_SECONDARY_PORT@@
+
+  ModPagespeedMapOriginDomain 127.0.0.1:@@APACHE_SECONDARY_PORT@@ \
+    redirecting-fetch.example.com:@@APACHE_SECONDARY_PORT@@ \
+    redirecting-fetch.example.com:@@APACHE_SECONDARY_PORT@@
+  ModPagespeedMapOriginDomain 127.0.0.1:@@APACHE_SECONDARY_PORT@@ \
+    redirecting-fetch-csp.example.com:@@APACHE_SECONDARY_PORT@@\
+    redirecting-fetch-csp.example.com:@@APACHE_SECONDARY_PORT@@
+
+  Redirect permanent /redir_to_test/combine_javascript1.js http://redirecting-fetch.example.com:@@APACHE_SECONDARY_PORT@@/mod_pagespeed_example/combine_javascript1.js
+  Redirect permanent /redir_to_test/combine_javascript2.js http://redirecting-fetch.example.com:@@APACHE_SECONDARY_PORT@@/mod_pagespeed_example/combine_javascript2.js
+  Redirect permanent /redir_to_test/styles/blue.css http://redirecting-fetch.example.com:@@APACHE_SECONDARY_PORT@@/mod_pagespeed_example/styles/yellow.css
+  Redirect permanent /redir_to_test/styles/yellow.css http://redirecting-fetch-csp.example.com:@@APACHE_SECONDARY_PORT@@/mod_pagespeed_example/styles/yellow.css
+  Redirect permanent /redir_to_test/images/BikeCrashIcn.png http://redirecting-fetch.example.com:@@APACHE_SECONDARY_PORT@@/mod_pagespeed_example/images/BikeCrashIcn.png
+  Redirect permanent /redir_to_test/styles/rewrite_css_images.css http://redirecting-fetch-csp.example.com:@@APACHE_SECONDARY_PORT@@/mod_pagespeed_example/styles/rewrite_css_images.css
+  Alias "/redir_to_test" "@@APACHE_DOC_ROOT@@/mod_pagespeed_test"
+</VirtualHost>
+
+
+<VirtualHost localhost:@@APACHE_SECONDARY_PORT@@>
+  ServerName redirecting-fetch-temp.example.com
+
+  ModPagespeedCacheTempRedirects on
+  # We'll only follow 302's marked as explicitly cacheable.
+  Header always set Cache-Control "public, max-age=3000"
+
+
+  DocumentRoot "@@APACHE_DOC_ROOT@@"
+  ModPagespeedFileCachePath "@@MOD_PAGESPEED_CACHE@@"
+  ModPagespeedDomain redirecting-fetch-temp.example.com:@@APACHE_SECONDARY_PORT@@
+  ModPagespeedMapOriginDomain 127.0.0.1:@@APACHE_SECONDARY_PORT@@ \
+    redirecting-fetch-temp.example.com:@@APACHE_SECONDARY_PORT@@
+
+  Redirect temp /redir_to_test/styles/1.css /redir_to_test/styles/2.css
+  Redirect temp /redir_to_test/styles/2.css /mod_pagespeed_example/styles/yellow.css
+
+</VirtualHost>
+
+<VirtualHost localhost:@@APACHE_SECONDARY_PORT@@>
+  ServerName redirecting-fetch-single-only.example.com
+  DocumentRoot "@@APACHE_DOC_ROOT@@"
+  ModPagespeedFileCachePath "@@MOD_PAGESPEED_CACHE@@"
+  ModPagespeedDomain redirecting-fetch-single-only.example.com:@@APACHE_SECONDARY_PORT@@
+  ModPagespeedMapOriginDomain 127.0.0.1:@@APACHE_SECONDARY_PORT@@ \
+    redirecting-fetch-single-only.example.com:@@APACHE_SECONDARY_PORT@@
+  ModPagespeedMaxFetchRedirects 1
+
+  Redirect permanent /redir_to_test/styles/1.css /redir_to_test/styles/2.css
+  Redirect permanent /redir_to_test/styles/2.css /mod_pagespeed_example/styles/yellow.css
+</VirtualHost>
+
+
+<VirtualHost localhost:@@APACHE_SECONDARY_PORT@@>
   ServerName debug-filters.example.com
   DocumentRoot "@@APACHE_DOC_ROOT@@"
   ModPagespeedFileCachePath "@@MOD_PAGESPEED_CACHE@@"

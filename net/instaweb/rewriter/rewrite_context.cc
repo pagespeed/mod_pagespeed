@@ -1295,7 +1295,6 @@ void RewriteContext::SetPartitionKey() {
     encoder()->Encode(url_keys, resource_context_.get(), &url_key);
     url_key = HashSplit(hasher, url_key);
   }
-
   partition_key_ = StrCat(ServerContext::kCacheKeyResourceNamePrefix,
                           id(), "_", signature, "/",
                           url_key, "@", suffix);
@@ -2006,9 +2005,21 @@ bool RewriteContext::AreOutputsAllowedByCsp(CspDirective role) const {
   }
 
   for (const OutputResourcePtr& o : outputs_) {
-    if (o.get() != nullptr && o->has_hash() && o->has_url() &&
-        !Driver()->IsLoadPermittedByCsp(GoogleUrl(o->url()), role)) {
-      return false;
+    if (o.get() != nullptr && o->has_hash() && o->has_url()) {
+      if (!Driver()->IsLoadPermittedByCsp(GoogleUrl(o->url()), role)) {
+        return false;
+      } else {
+        ConstStringStarVector v;
+        if (o->response_headers()->Lookup("@Redirects-Followed", &v)) {
+          for (int i = 0, n = v.size(); i < n; ++i) {
+            if (!Driver()->IsLoadPermittedByCsp(GoogleUrl(*(v[i])), role)) {
+              return false;
+            }
+          }
+        } else {
+          return true;
+        }
+      }
     }
   }
   return true;
@@ -2332,6 +2343,11 @@ bool RewriteContext::CreateOutputResourceForCachedOutput(
       ret = true;
     }
   }
+
+  for (int i = 0; i < cached_result->followed_redirects_size(); i++) {
+    output_resource->get()->response_headers()->Add("@Redirects-Followed", cached_result->followed_redirects(i));
+  }
+
   return ret;
 }
 

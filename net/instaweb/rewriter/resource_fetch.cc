@@ -82,6 +82,8 @@ void ResourceFetch::StartWithDriver(
     const GoogleUrl& url, CleanupMode cleanup_mode,
     ServerContext* server_context, RewriteDriver* driver,
     AsyncFetch* async_fetch) {
+  OutputSanitizingAsyncFetch* sanitizer = new OutputSanitizingAsyncFetch(async_fetch);
+  async_fetch = sanitizer;
 
   ResourceFetch* resource_fetch = new ResourceFetch(
       url, cleanup_mode, driver, server_context->timer(),
@@ -199,6 +201,7 @@ void ResourceFetch::HandleDone(bool success) {
       response_headers()->SetStatusAndReason(HttpStatus::kNotFound);
     }
   }
+
   RewriteStats* stats = driver_->server_context()->rewrite_stats();
   stats->fetch_latency_histogram()->Add(timer_->NowMs() - start_time_ms_);
   stats->total_fetch_count()->IncBy(1);
