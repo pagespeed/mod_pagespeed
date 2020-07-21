@@ -2096,6 +2096,46 @@ InlineResult ImageRewriteFilter::TryInline(bool is_html, bool is_critical,
   return INLINE_SUCCESS;
 }
 
+void ImageRewriteFilter::handleSemanticImage(HtmlElement* element, resource_tag_scanner::UrlCategoryPair attribute) {
+    switch (attribute.url->keyword()) {
+    case HtmlName::kSrc: {
+        LocalStorageCacheFilter::InlineState state;
+        if (LocalStorageCacheFilter::AddStorableResource(
+              attribute.url->DecodedValueOrNull(),
+              driver(),
+              false /* check cookie */,
+              element, &state)) {
+        break;
+        }
+      }
+    default:
+         BeginRewriteImageUrl(element, attribute.url);
+    }
+
+    // The LSC filter only knows how to handle the src attribute.
+    // if (attribute.url->keyword() == HtmlName::kSrc) {
+      // Ask the LSC filter to work out how to handle this element. A return
+      // value of true means we don't have to rewrite it so can skip that.
+      // The state is carried forward to after we initiate rewriting since
+      // we might still have to modify the element.
+      // LocalStorageCacheFilter::InlineState state;
+      // if (!LocalStorageCacheFilter::AddStorableResource(
+      //        attributes.url->DecodedValueOrNull(),
+      //        driver(),
+      //        false /* check cookie */,
+      //        element, &state)) {
+      //  BeginRewriteImageUrl(element, attribute.url);
+      // }
+    // } else {
+    //  BeginRewriteImageUrl(element, attribute.url);
+    // }
+}
+
+void ImageRewriteFilter::handleSemanticSrcSet(HtmlElement* element, HtmlElement::Attribute* data_srcset) {
+      BeginRewriteSrcSet(element, data_srcset);
+
+}
+
 void ImageRewriteFilter::StartElementImpl(HtmlElement* element) {
 
   // Don't rewrite if there is a pagespeed_no_transform or
@@ -2114,38 +2154,35 @@ void ImageRewriteFilter::StartElementImpl(HtmlElement* element) {
   resource_tag_scanner::UrlCategoryVector attributes;
   resource_tag_scanner::ScanElement(element, driver()->options(), &attributes);
   for (int i = 0, n = attributes.size(); i < n; ++i) {
-    if (attributes[i].category != semantic_type::kImage ||
-        attributes[i].url->DecodedValueOrNull() == NULL) {
+    auto attribute = attributes[i];
+    if (attributes[i].url->DecodedValueOrNull() == NULL) {
       continue;
     }
-
-    // The LSC filter only knows how to handle the src attribute.
-    if (attributes[i].url->keyword() == HtmlName::kSrc) {
-      // Ask the LSC filter to work out how to handle this element. A return
-      // value of true means we don't have to rewrite it so can skip that.
-      // The state is carried forward to after we initiate rewriting since
-      // we might still have to modify the element.
-      LocalStorageCacheFilter::InlineState state;
-      if (LocalStorageCacheFilter::AddStorableResource(
-              attributes[i].url->DecodedValueOrNull(),
-              driver(),
-              false /* check cookie */,
-              element, &state)) {
+    switch(attributes[i].category) {
+      case semantic_type::kHyperlink:
+       continue;
+      case semantic_type::kOtherResource:
+       continue;
+      case semantic_type::kPrefetch:
+       continue;
+      case semantic_type::kScript:
+       continue;
+      case semantic_type::kStylesheet:
+       continue;
+      case semantic_type::kUndefined:
+       continue;
+      case semantic_type::kImage:
+        handleSemanticImage(element, attribute);
+        continue;
+      case semantic_type::kSrcSetImage: {
+        // NOTE: We make HtmlName::kSrcset and HtmlName::kDataSrcset belong to this semantic type
+        HtmlElement::Attribute* data_srcset = attribute.url;
+        handleSemanticSrcSet(element, data_srcset);
         continue;
       }
+      default:
+        continue;
     }
-
-    BeginRewriteImageUrl(element, attributes[i].url);
-   
-  
-    HtmlElement::Attribute* srcset = element->FindAttribute(HtmlName::kSrcset);
-    HtmlElement::Attribute* datasrcset = element->FindAttribute(HtmlName::kDataSrcset);
-    if (srcset != nullptr) {
-	    BeginRewriteSrcSet(element, srcset);
-    } else if (datasrcset != nullptr) {
-	    BeginRewriteSrcSet(element, datasrcset);
-    }	    
-  
   }
 }
 

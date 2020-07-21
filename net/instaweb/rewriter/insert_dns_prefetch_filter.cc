@@ -175,6 +175,7 @@ void InsertDnsPrefetchFilter::StartElementImpl(HtmlElement* element) {
 
       case semantic_type::kHyperlink:
       case semantic_type::kUndefined:
+      case semantic_type::kSrcSetImage:
         break;
     }
   }

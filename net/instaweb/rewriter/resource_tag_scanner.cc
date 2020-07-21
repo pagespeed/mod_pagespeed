@@ -96,6 +96,13 @@ semantic_type::Category CategorizeAttributeBySpec(
     case HtmlName::kScript:
       return (attribute_name == HtmlName::kSrc ?
               semantic_type::kScript : semantic_type::kUndefined);
+    case HtmlName::kAmpImg:
+      if (attribute_name == HtmlName::kSrc) {
+        return semantic_type::kImage;
+      }
+      if (attribute_name == HtmlName::kSrcset) {
+        return semantic_type::kSrcSetImage;
+      }
     case HtmlName::kImg:
       if (attribute_name == HtmlName::kSrc) {
         return semantic_type::kImage;
@@ -110,6 +117,13 @@ semantic_type::Category CategorizeAttributeBySpec(
       if (attribute_name == HtmlName::kDataSrc) {
         return semantic_type::kImage;
       }
+      if (attribute_name == HtmlName::kSrcset) {
+        return semantic_type::kSrcSetImage;
+      }
+      if (attribute_name == HtmlName::kDataSrcset) {
+        return semantic_type::kSrcSetImage;
+      }
+
       if (attribute_name == HtmlName::kLongdesc) {
         return semantic_type::kHyperlink;
       }
