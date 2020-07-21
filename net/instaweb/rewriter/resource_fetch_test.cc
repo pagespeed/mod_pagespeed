@@ -115,6 +115,11 @@ TEST_F(ResourceFetchTest, BlockingFetch) {
   EXPECT_TRUE(custom_options->ValidateAndAddResourceHeader(
       "X-Foo-Spaced-Value", "aa bb", &err));
 
+  EXPECT_TRUE(custom_options->ValidateAndAddResourceHeader(
+      "Pre-exists", "1", &err));
+  EXPECT_TRUE(custom_options->ValidateAndAddResourceHeader(
+      "Pre-exists", "1", &err));
+
   RewriteDriver* custom_driver =
       server_context()->NewCustomRewriteDriver(
           custom_options,
@@ -145,6 +150,7 @@ TEST_F(ResourceFetchTest, BlockingFetch) {
   EXPECT_TRUE(callback->response_headers()->Has("X-Foo-Spaced-Value"));
   EXPECT_STREQ("aa bb", callback->response_headers()->Lookup1(
       "X-Foo-Spaced-Value"));
+  EXPECT_TRUE(callback->response_headers()->Lookup1("Pre-exists"));
 
   callback->Release();
 
