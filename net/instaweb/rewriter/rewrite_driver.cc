@@ -1894,6 +1894,7 @@ void RewriteDriver::FetchInPlaceResource(const GoogleUrl& gurl,
   StatisticsLogger* stats_logger =
       server_context_->statistics()->console_logger();
 
+  async_fetch = new OutputSanitizingAsyncFetch(async_fetch);
   if (!context->Fetch(output_resource, async_fetch, message_handler())) {
     // RewriteContext::Fetch can fail if the input URLs are undecodeable
     // or unfetchable. There is no decoding in this case, but unfetchability
@@ -1930,6 +1931,7 @@ bool RewriteDriver::FetchOutputResource(
   // Save pointer to stats_logger before "this" is deleted.
   StatisticsLogger* stats_logger =
       server_context_->statistics()->console_logger();
+  async_fetch = new OutputSanitizingAsyncFetch(async_fetch);
   if (async_fetch->request_headers()->Lookup(HttpAttributes::kIfModifiedSince,
                                              &values)) {
     async_fetch->response_headers()->SetStatusAndReason(
